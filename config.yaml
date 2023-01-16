@@ -1,0 +1,9 @@
+---
+dnsProvider: cloudflare
+dnsProviders:
+  cloudflare:
+    apiKey: API_KEY
+    apiEmail: API_EMAIL
+IPProvider: icanhazip    
+records:
+  - domain.ph4r5h4d.me
