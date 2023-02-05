@@ -15,7 +15,6 @@ type DnsProviders struct {
 
 // Cloudflare configuration
 type Cloudflare struct {
-  ApiKey   string `yaml:"apiKey"`
-  ApiEmail string `yaml:"apiEmail"`
+  ApiToken   string `yaml:"apiToken"`
+  Zone     string `yaml:"zone"`
 }
-
