@@ -2,16 +2,29 @@ package main
 
 import (
 	"errors"
-  "github.com/ph4r5h4d/cloudflare-ddns/model"
-	"github.com/ph4r5h4d/cloudflare-ddns/pkg/ip/current"
-  "github.com/ph4r5h4d/cloudflare-ddns/pkg/ip/current/icanhazip"
-  "github.com/ph4r5h4d/cloudflare-ddns/pkg/ip/current/ipify"
-  "github.com/spf13/viper"
+	"github.com/ph4r5h4d/cloudflare-ddns/model"
+	"github.com/ph4r5h4d/cloudflare-ddns/pkg/dns"
+	cldflr "github.com/ph4r5h4d/cloudflare-ddns/pkg/dns/cloudflare"
+	ip "github.com/ph4r5h4d/cloudflare-ddns/pkg/ip/current"
+	"github.com/ph4r5h4d/cloudflare-ddns/pkg/ip/current/icanhazip"
+	"github.com/ph4r5h4d/cloudflare-ddns/pkg/ip/current/ipify"
+
+	"github.com/spf13/viper"
 )
 
+type Dependencies struct {
+	Config      model.Config
+	IPInterface ip.GetIP
+	DNSProvider dns.Provider
+}
+
 var ipProviders = map[string]interface{}{
-  "ipify": &ipify.IP{},
-  "icanhazip": &icanhazip.IP{},
+	"ipify":     &ipify.IP{},
+	"icanhazip": &icanhazip.IP{},
+}
+
+var dnsProvider = map[string]interface{}{
+	"cloudflare": cldflr.DNS{},
 }
 
 func setupConfiguration() (model.Config, error) {
@@ -30,26 +43,46 @@ func setupConfiguration() (model.Config, error) {
 	return *c, nil
 }
 
-func setupGetIPProvider(config model.Config) (current.GetIP, error) {
-  s, ok := ipProviders[config.IPProvider]
+func setupGetIPProvider(config model.Config) (ip.GetIP, error) {
+	ipp, ok := ipProviders[config.IPProvider]
 	if !ok {
 		return nil, errors.New("invald IP provider")
 	}
-	return s.(current.GetIP), nil
+	return ipp.(ip.GetIP), nil
 }
 
-func setupDependencies() (model.Dependencies, error) {
+func setupDNSProvider(config model.Config) (dns.Provider, error) {
+	dnsp, ok := dnsProvider[config.DnsProvider]
+	if !ok {
+		return nil, errors.New("invalid DNS provider")
+	}
+	return dnsp.(dns.Provider), nil
+}
+
+func setupDependencies() (Dependencies, error) {
 	c, err := setupConfiguration()
-  if err != nil {
-    return model.Dependencies{}, nil
-  }
+	if err != nil {
+		return Dependencies{}, nil
+	}
+
 	ip, err := setupGetIPProvider(c)
-  if err != nil {
-    return model.Dependencies{}, nil
-  }
-	d := model.Dependencies{
+	if err != nil {
+		return Dependencies{}, nil
+	}
+
+	dnsImpl, err := setupDNSProvider(c)
+	if err != nil {
+		return Dependencies{}, nil
+	}
+	dnsp, err := dnsImpl.Build(c)
+	if err != nil {
+		return Dependencies{}, nil
+	}
+
+	d := Dependencies{
 		Config:      c,
 		IPInterface: ip,
+		DNSProvider: dnsp,
 	}
 	return d, err
 }
